@@ -30,6 +30,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (argv.length === 0) return { command: "help", flags: { ...DEFAULT_FLAGS } };
 
   const [cmd, ...rest] = argv;
+  if (cmd === "--version" || cmd === "-v") {
+    return { command: "version", flags: { ...DEFAULT_FLAGS } };
+  }
+  if (cmd === "--help" || cmd === "-h") {
+    return { command: "help", flags: { ...DEFAULT_FLAGS } };
+  }
   if (cmd !== "audit" && cmd !== "doctor" && cmd !== "version") {
     return { command: "help", flags: { ...DEFAULT_FLAGS } };
   }

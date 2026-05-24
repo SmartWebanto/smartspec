@@ -38,6 +38,22 @@ describe("parseArgs", () => {
     expect(parseArgs(["version"]).command).toBe("version");
   });
 
+  it("parses '--version' flag as version command", () => {
+    expect(parseArgs(["--version"]).command).toBe("version");
+  });
+
+  it("parses '-v' flag as version command", () => {
+    expect(parseArgs(["-v"]).command).toBe("version");
+  });
+
+  it("parses '--help' flag as help command", () => {
+    expect(parseArgs(["--help"]).command).toBe("help");
+  });
+
+  it("parses '-h' flag as help command", () => {
+    expect(parseArgs(["-h"]).command).toBe("help");
+  });
+
   it("returns command='help' for unknown command", () => {
     expect(parseArgs(["wat"]).command).toBe("help");
   });
