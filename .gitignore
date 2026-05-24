@@ -1,0 +1,21 @@
+# Build outputs
+dist/
+node_modules/
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Logs / caches
+*.log
+.cache/
+.npm/
+
+# Env
+.env
+.env.local
+
+# Bun
+bun.lockb

@@ -1,0 +1,57 @@
+{
+  "name": "smartspec",
+  "version": "0.1.0",
+  "description": "Technical SEO scanner that speaks fluent AI-built site (Lovable, Bolt, v0, Replit, Cursor)",
+  "license": "MIT",
+  "homepage": "https://github.com/smartwebanto/smartspec",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smartwebanto/smartspec.git"
+  },
+  "bugs": "https://github.com/smartwebanto/smartspec/issues",
+  "keywords": [
+    "seo",
+    "technical-seo",
+    "audit",
+    "lovable",
+    "bolt",
+    "v0",
+    "replit",
+    "cursor",
+    "cli"
+  ],
+  "bin": {
+    "smartspec": "dist/npm/cli.mjs"
+  },
+  "main": "dist/npm/cli.mjs",
+  "files": [
+    "dist/npm/cli.mjs",
+    ".claude/skills/audit-website/",
+    "readme.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "bash scripts/build-npm.sh",
+    "build:cli": "bash scripts/build.sh",
+    "build:all": "bash scripts/build-all.sh",
+    "dev": "bun src/cli.ts",
+    "test": "bun x vitest run tests",
+    "test:cli": "bun x vitest run tests/cli",
+    "test:audit": "bun x vitest run tests/audit",
+    "test:e2e": "bun x vitest run tests/e2e",
+    "smoke": "bash tests/smoke.sh",
+    "prepublishOnly": "bash scripts/build-npm.sh"
+  },
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "fast-xml-parser": "^5.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3"
+  }
+}
