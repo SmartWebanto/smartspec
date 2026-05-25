@@ -62,9 +62,9 @@ http://localhost:3000
 Create a client and run checks:
 
 ```bash
-npm run seo -- init alpaka --name "Alpaka" --domain alpaka.example --language it --country IT
-npm run seo -- crawl alpaka --max-pages 25
-npm run seo -- health alpaka
+npm run seo -- init acme --name "Acme" --domain acme.example --language it --country IT
+npm run seo -- crawl acme --max-pages 25
+npm run seo -- health acme
 ```
 
 Available CLI commands:
