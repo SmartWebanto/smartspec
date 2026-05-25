@@ -30,12 +30,6 @@ export function parseArgs(argv: string[]): ParsedArgs {
   if (argv.length === 0) return { command: "help", flags: { ...DEFAULT_FLAGS } };
 
   const [cmd, ...rest] = argv;
-  if (cmd === "--version" || cmd === "-v") {
-    return { command: "version", flags: { ...DEFAULT_FLAGS } };
-  }
-  if (cmd === "--help" || cmd === "-h") {
-    return { command: "help", flags: { ...DEFAULT_FLAGS } };
-  }
   if (cmd !== "audit" && cmd !== "doctor" && cmd !== "version") {
     return { command: "help", flags: { ...DEFAULT_FLAGS } };
   }
@@ -65,7 +59,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         if (i + 1 < rest.length) flags.maxPages = parseInt(rest[++i], 10);
         break;
       case "--categories":
-        if (i + 1 < rest.length) flags.categories = rest[++i].split(",").map(s => s.trim());
+        if (i + 1 < rest.length) flags.categories = rest[++i].split(",").map(s => s.trim()).filter(Boolean);
         break;
       case "-q":
       case "--quiet":
@@ -89,6 +83,17 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
 import { crawlAudit } from "./crawl/crawl";
 import { readEnvConfig } from "./crawl/env";
+import { renderHtmlReport } from "./formatters/html";
+import { renderMarkdownReport } from "./formatters/markdown";
+import { renderTextReport } from "./formatters/text";
+import { renderXmlReport } from "./formatters/xml";
+import { renderLlmReport } from "./formatters/llm";
+import {
+  ALL_AUDIT_CATEGORIES,
+  AUDIT_CATEGORY_ALIASES,
+  invalidAuditCategories,
+  normalizeAuditCategories,
+} from "./audit/aggregate-passes";
 
 export async function runAuditCommand(
   target: string | undefined,
@@ -110,6 +115,14 @@ export async function runAuditCommand(
     return 1;
   }
 
+  const invalidCategories = invalidAuditCategories(flags.categories);
+  if (invalidCategories.length > 0) {
+    process.off("SIGINT", onSigint);
+    stderr.write(`error: unknown audit categor${invalidCategories.length === 1 ? "y" : "ies"}: ${invalidCategories.join(", ")}\n`);
+    stderr.write(`allowed categories: ${formatAllowedCategories()}\n`);
+    return 1;
+  }
+
   if (!flags.quiet) stderr.write(`auditing ${target}...\n`);
 
   const envCfg = readEnvConfig(process.env);
@@ -121,7 +134,7 @@ export async function runAuditCommand(
       concurrency: envCfg.concurrency,
       userAgent: envCfg.userAgent,
       requestsPerSecond: envCfg.requestsPerSecond,
-      categories: flags.categories,
+      categories: normalizeAuditCategories(flags.categories),
       includeFixes: !flags.noFixes,
     });
   } catch (e) {
@@ -135,12 +148,38 @@ export async function runAuditCommand(
     process.off("SIGINT", onSigint);
   }
 
-  // Phase 1: format-aware output is added in Phase 5. For now: console = brief, others = JSON.
-  if (flags.format === "console") {
-    stdout.write(`score: ${result.score}\n`);
-    stdout.write(`findings: ${result.findings.length}\n`);
+  let body: string;
+  switch (flags.format) {
+    case "html":
+      body = renderHtmlReport(result);
+      break;
+    case "markdown":
+      body = renderMarkdownReport(result);
+      break;
+    case "text":
+      body = renderTextReport(result);
+      break;
+    case "xml":
+      body = renderXmlReport(result);
+      break;
+    case "llm":
+      body = renderLlmReport(result);
+      break;
+    case "json":
+      body = JSON.stringify(result, null, 2);
+      break;
+    case "console":
+    default:
+      body = `score: ${result.score}\nfindings: ${result.findings.length}\n`;
+      break;
+  }
+
+  if (flags.output) {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(flags.output, body.endsWith("\n") ? body : body + "\n", "utf8");
+    if (!flags.quiet) stderr.write(`wrote ${flags.output}\n`);
   } else {
-    stdout.write(JSON.stringify(result, null, 2) + "\n");
+    stdout.write(body.endsWith("\n") ? body : body + "\n");
   }
   return 0;
 }
@@ -160,14 +199,17 @@ export async function runDoctorCommand(stdout: NodeJS.WriteStream = process.stdo
 }
 
 async function detectPython(): Promise<string> {
-  try {
-    const proc = Bun.spawn(["python3", "--version"], { stdout: "pipe", stderr: "pipe" });
-    const out = await new Response(proc.stdout).text();
-    await proc.exited;
-    return out.trim() || "found";
-  } catch {
-    return "not found";
-  }
+  const { execFile } = await import("node:child_process");
+  return new Promise((resolve) => {
+    execFile("python3", ["--version"], { timeout: 3000 }, (err, stdout, stderr) => {
+      if (err) {
+        resolve("not found");
+        return;
+      }
+      const out = (stdout || stderr || "").trim();
+      resolve(out || "found");
+    });
+  });
 }
 
 export function runVersionCommand(stdout: NodeJS.WriteStream = process.stdout): number {
@@ -188,15 +230,31 @@ commands:
 
 flags (audit):
   -f, --format <t>      console|json|html|markdown|text|llm|xml (default: console)
-  -o, --output <path>   Write output to file instead of stdout
+  -o, --output <path>   Write rendered output to file instead of stdout
   -m, --max-pages <n>   Crawl limit (default: 250)
-  --categories <list>   Comma-separated subset (e.g. seo,a11y)
+  --categories <list>   Comma-separated subset (e.g. page,a11y,schema)
   --no-fixes            Skip suggested_fix emission
   --no-plugins          Skip Python plugins
   -q, --quiet           Suppress progress
   --verbose             Verbose logs to stderr
+
+format details:
+  console   minimal one-liner (score + finding count)
+  json      pretty-printed AuditResult
+  html      standalone HTML report (default styling embedded)
+  markdown  Markdown report with summary table + per-finding sections
+  text      plain text report (no markup)
+  llm       Anthropic-style XML tags with a leading instruction block
+  xml       standard XML for tooling integration
 `);
   return 0;
+}
+
+function formatAllowedCategories(): string {
+  const aliases = Object.entries(AUDIT_CATEGORY_ALIASES)
+    .map(([alias, category]) => `${alias}->${category}`)
+    .join(", ");
+  return `${ALL_AUDIT_CATEGORIES.join(", ")}${aliases ? ` (aliases: ${aliases})` : ""}`;
 }
 
 // Main dispatch — runs when the file is executed (not just imported)

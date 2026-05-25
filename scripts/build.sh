@@ -13,7 +13,7 @@ mkdir -p dist
 
 echo "Building dist/${OUTNAME} (version=${VERSION}, commit=${COMMIT})..."
 
-bun build src/cli.ts \
+bun build packages/core/src/cli.ts \
   --compile \
   --minify \
   --sourcemap \

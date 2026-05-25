@@ -4,6 +4,24 @@ import type { Finding } from "../../legacy-types";
 
 export type SchemaCtx = { url: string; parsed: ParsedHtml };
 
+// Schema audit philosophy
+// -----------------------
+// Organization and WebSite schemas are conventionally declared once on the
+// homepage and referenced by `@id` elsewhere — fanning them out across every
+// page is anti-pattern, not best practice. So:
+//
+// - On the homepage: missing Org/WebSite is a warning (real signal loss).
+// - On other pages: we don't expect Org/WebSite at all; we only check whether
+//   *some* structured data is present (info-level, since many page types
+//   legitimately have none).
+
+function hasType(jsonLd: unknown[], target: string): boolean {
+  return jsonLd.some((j) => {
+    const t = (j as Record<string, unknown>)["@type"];
+    return t === target || (Array.isArray(t) && t.includes(target));
+  });
+}
+
 export async function schemaModule(ctx: SchemaCtx): Promise<Finding[]> {
   const out: Finding[] = [];
   const p = ctx.parsed;
@@ -15,25 +33,43 @@ export async function schemaModule(ctx: SchemaCtx): Promise<Finding[]> {
     isHomepage = false;
   }
 
-  if (isHomepage && p.jsonLd.length > 0) {
-    const hasOrg = p.jsonLd.some((j) => {
-      const t = (j as Record<string, unknown>)["@type"];
-      return t === "Organization" || (Array.isArray(t) && t.includes("Organization"));
-    });
-    if (!hasOrg) {
+  if (isHomepage) {
+    if (p.jsonLd.length === 0) {
+      out.push(
+        finding(
+          "schema-jsonld-missing",
+          "schema",
+          "warning",
+          "Homepage has no JSON-LD structured data",
+          'No <script type="application/ld+json"> blocks found on the homepage.',
+          "Add at minimum an Organization block (brand identity) and a WebSite block (sitelinks search box). Other types (Article, Product, BreadcrumbList) belong on their corresponding pages.",
+          ctx.url,
+          {
+            docKey: "jsonLd",
+            impact:
+              "The homepage is where Google looks for brand entity signals. Missing schema means no Knowledge Panel candidacy and no sitelinks search box.",
+            businessImpact: "ctr",
+            framework: "SEO",
+          },
+        ),
+      );
+      return out;
+    }
+
+    if (!hasType(p.jsonLd, "Organization")) {
       out.push(
         finding(
           "schema-missing-organization",
           "schema",
           "warning",
           "Homepage has no Organization JSON-LD",
-          'No <script type="application/ld+json"> with @type Organization found.',
-          'Add an Organization schema in <head>:\n<script type="application/ld+json">\n{"@context":"https://schema.org","@type":"Organization","name":"<your name>","url":"<your url>","logo":"<your logo url>"}\n</script>',
+          'JSON-LD is present but no @type "Organization" block was found.',
+          'Add an Organization block with name, url, logo, and sameAs (social profiles):\n<script type="application/ld+json">\n{"@context":"https://schema.org","@type":"Organization","name":"...","url":"...","logo":"...","sameAs":["..."]}\n</script>',
           ctx.url,
           {
             docKey: "jsonLd",
             impact:
-              "Without Organization schema, Google cannot build a Knowledge Panel for the brand. AI tools never add this by default.",
+              "Without Organization on the homepage, Google cannot reliably attribute knowledge-panel signals to the brand.",
             businessImpact: "ranking",
             framework: "SEO",
           },
@@ -41,103 +77,51 @@ export async function schemaModule(ctx: SchemaCtx): Promise<Finding[]> {
       );
     }
 
-    const hasWebsite = p.jsonLd.some((j) => {
-      const t = (j as Record<string, unknown>)["@type"];
-      return t === "WebSite" || (Array.isArray(t) && t.includes("WebSite"));
-    });
-    if (!hasWebsite) {
+    if (!hasType(p.jsonLd, "WebSite")) {
       out.push(
         finding(
           "schema-missing-website",
           "schema",
-          "warning",
+          "info",
           "Homepage has no WebSite JSON-LD",
-          'No <script type="application/ld+json"> with @type WebSite found.',
-          'Add a WebSite schema in <head>:\n<script type="application/ld+json">\n{"@context":"https://schema.org","@type":"WebSite","name":"<site name>","url":"<site url>","potentialAction":{"@type":"SearchAction","target":"<search url template>","query-input":"required name=search_term_string"}}\n</script>',
+          'JSON-LD is present but no @type "WebSite" block was found.',
+          'Add a WebSite block with potentialAction → SearchAction to enable the sitelinks search box (when your site has internal search):\n<script type="application/ld+json">\n{"@context":"https://schema.org","@type":"WebSite","url":"...","potentialAction":{"@type":"SearchAction","target":"...{search_term_string}","query-input":"required name=search_term_string"}}\n</script>',
           ctx.url,
           {
             docKey: "jsonLd",
             impact:
-              "WebSite schema enables sitelinks search box and clarifies site identity. AI tools omit it.",
+              "Without WebSite + SearchAction, the sitelinks search box won't render under the brand SERP entry. Not applicable if the site has no internal search.",
             businessImpact: "ctr",
             framework: "SEO",
           },
         ),
       );
     }
+    return out;
   }
 
+  // Non-homepage: only flag total absence of structured data, at info severity
+  // (many page types legitimately ship without JSON-LD). Don't moan about
+  // Organization/WebSite — those belong on the homepage.
   if (p.jsonLd.length === 0) {
     out.push(
       finding(
         "schema-jsonld-missing",
         "schema",
-        "warning",
-        "No JSON-LD structured data",
+        "info",
+        "No JSON-LD structured data on this page",
         'No <script type="application/ld+json"> blocks found.',
-        "Add JSON-LD for the most relevant types: Organization on the homepage, WebSite + SearchAction sitewide, Article/Product on specific pages.",
+        "Consider adding a schema relevant to this page type — Article, Product, BreadcrumbList, FAQPage, etc. Reference your sitewide Organization via @id if appropriate.",
         ctx.url,
         {
           docKey: "jsonLd",
           impact:
-            "Without structured data Google cannot enrich your SERP entry with sitelinks, ratings, breadcrumbs, or knowledge panel signals.",
+            "Structured data helps Google enrich the SERP entry (breadcrumbs, ratings, FAQ accordions). Not every page needs it, but most benefit.",
           businessImpact: "ctr",
           framework: "SEO",
         },
       ),
     );
-    return out;
-  }
-
-  const types = new Set<string>();
-  for (const node of p.jsonLd) {
-    const t = (node as { "@type"?: string | string[] })["@type"];
-    if (typeof t === "string") types.add(t);
-    else if (Array.isArray(t)) t.forEach((x) => types.add(x));
-  }
-
-  if (!isHomepage) {
-    if (!types.has("Organization")) {
-      out.push(
-        finding(
-          "schema-org-missing",
-          "schema",
-          "warning",
-          "No Organization schema",
-          "JSON-LD blocks found but none of type Organization.",
-          "Add an Organization schema with name, url, logo, and sameAs (social profiles).",
-          ctx.url,
-          {
-            docKey: "organization",
-            impact:
-              "Organization schema feeds Google's Knowledge Panel and brand recognition signals.",
-            businessImpact: "ranking",
-            framework: "SEO",
-          },
-        ),
-      );
-    }
-
-    if (!types.has("WebSite")) {
-      out.push(
-        finding(
-          "schema-website-missing",
-          "schema",
-          "info",
-          "No WebSite schema",
-          "WebSite schema with potentialAction enables the Sitelinks Search Box.",
-          "Add a WebSite JSON-LD block with potentialAction → SearchAction pointing to your internal search URL.",
-          ctx.url,
-          {
-            docKey: "website",
-            impact:
-              "Without WebSite + SearchAction, the Sitelinks Search Box won't appear under your brand SERP entry.",
-            businessImpact: "ctr",
-            framework: "SEO",
-          },
-        ),
-      );
-    }
   }
 
   return out;

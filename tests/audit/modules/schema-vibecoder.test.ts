@@ -44,7 +44,7 @@ describe("schemaModule — vibecoder rules", () => {
     );
     const f = findings.find((x) => x.id === "schema-missing-website");
     expect(f).toBeDefined();
-    expect(f!.severity).toBe("warning");
+    expect(f!.severity).toBe("info");
   });
 
   it("does NOT emit schema-missing-website when WebSite JSON-LD is present", async () => {

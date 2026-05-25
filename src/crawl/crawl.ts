@@ -5,6 +5,12 @@ import { HostRateLimiter } from "./rate-limit";
 import { parseHtml } from "./parse-html";
 import { runPageSpeed } from "../audit/pagespeed";
 import { finding } from "../audit/finding";
+import { score } from "../score";
+import {
+  aggregatePassesByCategory,
+  ALL_AUDIT_CATEGORIES,
+  normalizeAuditCategories,
+} from "../audit/aggregate-passes";
 import { parseRobots, isAllowed } from "./robots-rules";
 import { pageModule } from "../audit/modules/page";
 import { schemaModule } from "../audit/modules/schema";
@@ -19,6 +25,9 @@ import { llmsModule } from "../audit/modules/llms";
 import { redirectsModule } from "../audit/modules/redirects";
 import { securityModule } from "../audit/modules/security";
 import { performanceModule } from "../audit/modules/performance";
+import { mobileModule } from "../audit/modules/mobile";
+import { contentQualityModule } from "../audit/modules/content-quality";
+import { analyticsModule } from "../audit/modules/analytics";
 import type { Finding } from "../legacy-types";
 
 export type CrawlOptions = {
@@ -292,7 +301,8 @@ export async function crawlAudit(startUrl: string, opts: CrawlOptions = {}): Pro
       collectLinks(homeParsed.links.internal, homeUrl);
       const perPage = (await Promise.all([
         pageModule(ctx), schemaModule(ctx), imagesModule(ctx), linksModule(ctx),
-        socialModule(ctx), a11yModule(ctx), hreflangModule(ctx),
+        socialModule(ctx), a11yModule(ctx), hreflangModule(ctx), mobileModule(ctx),
+        contentQualityModule(ctx), analyticsModule(ctx),
       ])).flat();
       findings.push(...prefixIds(perPage, key));
       return;
@@ -312,7 +322,8 @@ export async function crawlAudit(startUrl: string, opts: CrawlOptions = {}): Pro
     collectLinks(parsed.links.internal, pageUrl);
     const perPage = (await Promise.all([
       pageModule(ctx), schemaModule(ctx), imagesModule(ctx), linksModule(ctx),
-      socialModule(ctx), a11yModule(ctx), hreflangModule(ctx),
+      socialModule(ctx), a11yModule(ctx), hreflangModule(ctx), mobileModule(ctx),
+      contentQualityModule(ctx), analyticsModule(ctx),
     ])).flat();
     findings.push(...prefixIds(perPage, key));
     if (psiScope === "all") {
@@ -350,30 +361,32 @@ export async function crawlAudit(startUrl: string, opts: CrawlOptions = {}): Pro
     return true;
   });
 
+  const requestedCategories = normalizeAuditCategories(opts.categories);
+  const ranCategories = psiScope === "none"
+    ? ALL_AUDIT_CATEGORIES.filter((c) => c !== "performance")
+    : ALL_AUDIT_CATEGORIES;
+  const expectedCategories = requestedCategories
+    ? ranCategories.filter((category) => requestedCategories.includes(category))
+    : ranCategories;
+  const withPasses = [
+    ...deduped,
+    ...aggregatePassesByCategory(deduped, expectedCategories, homeUrl),
+  ];
+
   const pagesScanned = pages.length;
-  const score = normalizedScore(deduped, pagesScanned);
 
-  let outFindings = deduped;
-  outFindings = filterFindingsByCategory(outFindings, opts.categories);
+  let outFindings = withPasses;
+  outFindings = filterFindingsByCategory(outFindings, requestedCategories);
   if (opts.includeFixes === false) outFindings = stripSuggestedFixes(outFindings);
+  const auditScore = score(outFindings);
 
-  return { startUrl, finalUrl: home.finalUrl, pagesScanned, startedAt, finishedAt: new Date().toISOString(), score, findings: outFindings };
-}
-
-function normalizedScore(findings: Finding[], pagesScanned: number): number {
-  const divisor = Math.max(1, pagesScanned);
-  const SITE_LEVEL = new Set(["robots", "sitemap", "ai-readiness", "redirects", "security", "performance"]);
-  let penalty = 0;
-  for (const f of findings) {
-    const base = f.severity === "critical" ? 10 : f.severity === "warning" ? 3 : f.severity === "info" ? 0.5 : 0;
-    penalty += SITE_LEVEL.has(f.category) ? base : base / divisor;
-  }
-  return Math.max(0, Math.round(100 - penalty));
+  return { startUrl, finalUrl: home.finalUrl, pagesScanned, startedAt, finishedAt: new Date().toISOString(), score: auditScore, findings: outFindings };
 }
 
 export function filterFindingsByCategory(findings: Finding[], categories: string[] | undefined): Finding[] {
-  if (!categories || categories.length === 0) return findings;
-  const set = new Set(categories);
+  const normalized = normalizeAuditCategories(categories);
+  if (!normalized || normalized.length === 0) return findings;
+  const set = new Set(normalized);
   return findings.filter((f) => set.has(String((f as { category?: string }).category ?? "")));
 }
 

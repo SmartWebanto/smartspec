@@ -14,12 +14,12 @@ export async function llmsModule(ctx: LlmsCtx): Promise<Finding[]> {
         "info",
         "No /llms.txt file",
         "GET /llms.txt returned 404 or could not be fetched.",
-        "Create a /llms.txt at the site root that summarizes your site for LLM crawlers (ChatGPT, Claude, Perplexity). See the spec at llmstxt.org.",
+        "Optional: publish a /llms.txt at the site root summarizing your site for AI crawlers. The format is proposed at llmstxt.org and is still emerging — treat this as future-proofing, not an urgent fix.",
         `${new URL(ctx.url).origin}/llms.txt`,
         {
           docKey: "llmsTxt",
           impact:
-            "AI search engines (ChatGPT, Perplexity, Claude) use llms.txt to understand and cite your site. Without it your brand is less likely to appear in AI answers.",
+            "llms.txt is a community proposal (llmstxt.org). No major AI provider has confirmed it as an official signal yet. Adopting it costs little and may help once tooling matures, but skipping it has no measurable downside today.",
           businessImpact: "ranking",
           framework: "AEO",
         },

@@ -8,16 +8,18 @@ export async function imagesModule(ctx: ImagesCtx): Promise<Finding[]> {
   const out: Finding[] = [];
   const p = ctx.parsed;
 
-  const missingAlt = p.images.filter((i) => !i.alt);
+  // Images with no `alt` attribute at all (decorative `alt=""` is excluded —
+  // that's a valid, intentional pattern for screen readers).
+  const missingAlt = p.images.filter((i) => i.alt === undefined);
   if (missingAlt.length > 0) {
     out.push(
       finding(
         "images-alt-missing",
         "images",
         "warning",
-        `${missingAlt.length} image${missingAlt.length === 1 ? "" : "s"} missing alt text`,
+        `${missingAlt.length} image${missingAlt.length === 1 ? "" : "s"} missing alt attribute`,
         missingAlt.slice(0, 5).map((i) => i.src).join("\n"),
-        'Add a descriptive alt attribute to each <img>. For purely decorative images use alt="" (empty) so screen readers skip them.',
+        'Add a descriptive alt attribute to each <img>. For purely decorative images use alt="" (empty) so screen readers skip them — but the attribute must be present.',
         ctx.url,
         {
           docKey: "altText",

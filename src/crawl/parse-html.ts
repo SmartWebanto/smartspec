@@ -2,7 +2,10 @@ import * as cheerio from "cheerio";
 
 export type ParsedImage = {
   src: string;
-  alt: string;
+  // `undefined` = no alt attribute at all (accessibility failure).
+  // `""` = explicit empty alt (decorative image, intentional and valid).
+  // Any other string = description.
+  alt: string | undefined;
   loading?: string;
   width?: string;
   height?: string;
@@ -86,7 +89,7 @@ export function parseHtml(html: string, baseUrl: string): ParsedHtml {
     if (!src) return;
     images.push({
       src: abs(baseUrl, src),
-      alt: $el.attr("alt") ?? "",
+      alt: $el.attr("alt"),
       loading: $el.attr("loading"),
       width: $el.attr("width"),
       height: $el.attr("height"),

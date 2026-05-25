@@ -41,4 +41,21 @@ describe("runAuditCommand", () => {
     );
     expect(code).toBe(1);
   });
+
+  it("rejects unknown audit categories before crawling", async () => {
+    const stderrWrites: string[] = [];
+    const fakeStderr = { write: (s: string) => { stderrWrites.push(s); return true; } } as unknown as NodeJS.WriteStream;
+    const fakeStdout = { write: () => true } as unknown as NodeJS.WriteStream;
+
+    const code = await runAuditCommand(
+      "https://example.com",
+      { format: "console", maxPages: 1, categories: ["not-real"], quiet: true, verbose: false, noFixes: false, noPlugins: false },
+      fakeStdout,
+      fakeStderr,
+    );
+
+    expect(code).toBe(1);
+    expect(stderrWrites.join("")).toContain("unknown audit category: not-real");
+    expect(stderrWrites.join("")).toContain("allowed categories:");
+  });
 });

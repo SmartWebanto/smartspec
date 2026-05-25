@@ -19,6 +19,7 @@ import { mobileModule } from "./modules/mobile";
 import { contentQualityModule } from "./modules/content-quality";
 import { analyticsModule } from "./modules/analytics";
 import { decorateFindingsWithAiTool } from "./decorate-fixes";
+import { aggregatePassesByCategory, ALL_AUDIT_CATEGORIES } from "./aggregate-passes";
 import type { Finding } from "../legacy-types";
 
 export type AuditResult = {
@@ -68,7 +69,14 @@ export async function runAudit(originalUrl: string): Promise<AuditResult> {
     ])
   ).flat();
 
-  const findings = decorateFindingsWithAiTool(rawFindings, main.finalUrl, main.body);
+  const decorated = decorateFindingsWithAiTool(rawFindings, main.finalUrl, main.body);
+  const ranCategories = psi
+    ? ALL_AUDIT_CATEGORIES
+    : ALL_AUDIT_CATEGORIES.filter((c) => c !== "performance");
+  const findings = [
+    ...decorated,
+    ...aggregatePassesByCategory(decorated, ranCategories, main.finalUrl),
+  ];
 
   return {
     url: originalUrl,

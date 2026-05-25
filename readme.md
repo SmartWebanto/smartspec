@@ -1,114 +1,157 @@
-# smartspec
+# technical-seo
 
-> The technical-SEO scanner that speaks fluent AI-built site.
+Standalone technical SEO tool workspace. It can be used through its CLI or as a
+Claude operator workspace.
 
-`smartspec` audits AI-generated websites — Lovable, Bolt, v0, Replit, Cursor — and tells you exactly how to fix what's broken. Open source, MIT, ~60MB single-file binary.
+## What this is
 
-```bash
-npm i -g smartspec
-smartspec audit https://my-app.lovable.app
-```
+A self-contained operator workspace that performs only:
 
-## What it catches
+- Crawlability, indexability, redirects, hreflang
+- Site structure and internal linking
+- Schema markup validation
+- Core Web Vitals and PageSpeed
+- Security headers, mobile-first, image tech
+- `llms.txt` and AI-crawler readiness
+- Single-page and full-site technical audits
 
-Twelve+ rules tuned for the way AI builders generate sites today. The fix message names the tool when detectable, so you fix it in the right place.
+## What you get
 
-| AI builder | Representative rules |
-|---|---|
-| **Lovable** | `page-noindex` (preview default), `page-canonical-localhost` |
-| **v0 by Vercel** | `page-title-default` ("v0 by Vercel" boilerplate), `page-empty-source-html` (JS-only shell) |
-| **Bolt** | `analytics-measurement-id-placeholder` (`G-XXXXXXXXXX`), `schema-missing-organization` |
-| **Generic AI scaffolds** | `mobile-viewport-missing`, `content-thin`, `sitemap-phantom`, `content-boilerplate-hero` |
+The workspace ships one granular `/tech:*` slash command for every audit
+module smartspec supports — 21 commands total.
 
-Plus the usual technical-SEO foundation: crawlability, redirects, hreflang, schema, Core Web Vitals signals, security headers, llms.txt, image tech.
+**Composite & system**
+`/tech:status`, `/tech:audit`, `/tech:page`, `/tech:health`, `/tech:daily`,
+`/tech:weekly`
 
-## Install
+**Per-category (one per smartspec audit module)**
+`/tech:a11y`, `/tech:analytics`, `/tech:content-quality`, `/tech:hreflang`,
+`/tech:images`, `/tech:links`, `/tech:llms-txt`, `/tech:mobile`,
+`/tech:performance`, `/tech:redirects`, `/tech:robots`, `/tech:schema`,
+`/tech:security`, `/tech:sitemap`, `/tech:social`
 
-### npm (recommended)
+Each granular skill:
 
-```bash
-npm i -g smartspec
-```
+1. Calls `smartspec audit <url> --categories=<name> --format=json` as the
+   primary detection engine.
+2. Enriches with a matching Python helper in
+   `.claude/skills/tech/_scripts/`.
+3. Writes `findings/tech-<name>-YYYY-MM-DD.json` + a Markdown report.
 
-### One-line installer (no Node required)
+See `AGENTS.md` §Slash commands and
+`.claude/skills/tech/_resources/references/skill-map.md` for the full
+inventory.
 
-```bash
-curl -fsSL smartspec.dev/install | bash
-```
-
-Detects your OS/arch, downloads the matching binary, drops it in `~/.smartspec/bin/`.
-
-### Build from source
-
-```bash
-git clone https://github.com/smartwebanto/smartspec
-cd smartspec
-bun install
-bun run src/cli.ts audit https://example.com
-```
-
-Requires [Bun](https://bun.sh) 1.3+.
-
-## Usage
+## Quick start
 
 ```bash
-smartspec audit <url>                              # console report
-smartspec audit <url> -f json                      # machine-readable
-smartspec audit <url> -f json | jq '.findings[] | select(.severity=="critical")'
-smartspec doctor                                   # verify install
-smartspec --version
+cd /Users/antonio/Desktop/smartweb_media/technical-seo
+cp .env.example .env             # then fill in real vault refs
+npm install                      # nothing to install — present for cross-tool parity
+npm run doctor                   # verify wiring
+npm run seo -- status            # compact tool status
+npm run web                      # open the frontend app
 ```
 
-Available output formats: `console`, `json`. Coming in v0.2: `html`, `markdown`, `text`, `llm`, `xml`.
+Frontend app:
 
-## Use it from your AI agent
+```text
+http://localhost:3000
+```
 
-Already coding with Claude Code or Cursor? Install the `audit-website` skill once and ask your agent to audit any URL:
+Create a client and run checks:
 
 ```bash
-git clone https://github.com/smartwebanto/smartspec
-cp -r smartspec/.claude/skills/audit-website ~/.claude/skills/
+npm run seo -- init alpaka --name "Alpaka" --domain alpaka.example --language it --country IT
+npm run seo -- crawl alpaka --max-pages 25
+npm run seo -- health alpaka
 ```
 
-Then in Claude Code or Cursor: *"Audit my Lovable app at https://my-app.lovable.app"*. The agent runs smartspec and walks you through fixes, naming the tool that built the site.
-
-## Project layout
-
-```
-src/
-├── cli.ts              # CLI entry point
-├── audit/              # rule engine + vibecoder rules
-│   ├── modules/        # one file per audit module (schema, sitemap, mobile, ...)
-│   ├── ai-tool-detect.ts
-│   └── decorate-fixes.ts
-├── crawl/              # fetch, parse, robots, rate-limit
-└── score.ts            # severity-weighted scoring
-scripts/
-├── build.sh            # single-platform binary (current OS/arch)
-├── build-all.sh        # 6-target cross-build
-├── build-npm.sh        # tsup ESM bundle for npm
-├── install.sh          # one-line installer (used by smartspec.dev/install)
-└── INSTALL.md          # deployment guide for the install path
-tests/                  # vitest suites — cli, audit, e2e, parity
-.claude/skills/audit-website/   # Claude Code skill
-.cursor/rules/audit-website.md  # Cursor variant
-```
-
-## Development
+Available CLI commands:
 
 ```bash
-bun install                                    # install deps
-bun run src/cli.ts audit https://example.com   # run from source
-bun x vitest run                               # run all tests
-bash scripts/build.sh                          # build local binary -> dist/smartspec
-bash scripts/build-all.sh                      # build 6 binaries -> dist/bun-<target>/smartspec
-bash scripts/build-npm.sh                      # build npm bundle -> dist/npm/cli.mjs
+npm run seo -- doctor
+npm run seo -- status
+npm run seo -- init <slug> --name <name> --domain <domain>
+npm run seo -- crawl <client>
+npm run seo -- health <client>
+npm run seo -- audit <client>
+npm run seo -- page <client> --url https://example.com/page
+npm run seo -- schema <client>
+npm run seo -- links <client>
+npm run seo -- images <client>
+npm run seo -- security <client>
+npm run seo -- performance <client>
+npm run seo -- llms <client>
 ```
 
-## License
+The frontend exposes the same audit modules and writes machine-readable
+findings to `findings/`, Markdown reports to `reports/`, and snapshots to
+`history/`.
 
-MIT. See [LICENSE](LICENSE).
+To use the Claude workspace directly:
 
-## Not affiliated
+```
+./.claude/bin/claude-wrap
+/tech:status              # overview
+/tech:audit <client>      # full-site audit
+/tech:page <client> <url> # single-page deep audit
+```
 
-`smartspec` is not affiliated with Lovable, Bolt, v0 (Vercel), Replit, or Cursor. We just like what you build.
+## Layout
+
+See `CLAUDE.md` §Project structure.
+
+## Boundaries
+
+This workspace performs only the technical-SEO checks listed above. Anything
+outside that list belongs in a different workspace (e.g. `studio/`).
+
+## Tests
+
+```bash
+npm test                   # leakage gate + pytest
+npm run test:leakage       # only the grep gate
+npm run test:scaffold      # only the structure tests
+npm run test:scripts       # only the script-import smoke tests
+```
+
+## CLI (in development, Phase 1)
+
+A standalone single-binary CLI is being built under `src/` as a pivot toward a public product.
+See [[2026-05-23-squirrelscan-style-cli-pivot-design]] for the design and
+[[2026-05-23-cli-pivot-phase1-foundation]] for the Phase 1 implementation plan.
+
+Binary name: `smartspec`.
+
+Build locally:
+
+```bash
+bash scripts/build.sh         # host target → dist/smartspec
+bash scripts/build-all.sh     # all 6 supported OS targets
+bash tests/smoke.sh           # exercise all commands
+```
+
+Try it (after `build.sh`):
+
+```bash
+./dist/smartspec audit https://example.com -f json -m 1 -q
+./dist/smartspec doctor
+./dist/smartspec version
+```
+
+The CLI currently reuses the existing audit engine in `src/audit/` (copied from
+`web/lib/audit/` in Phase 1; will be refactored to the new `AuditModule` interface
+in Phase 3). The web app under `web/` remains independently functional.
+
+## Use with AI agents
+
+smartspec ships an `audit-website` skill for AI coding assistants. They invoke `smartspec audit <url>` and walk users through fixes for them.
+
+**Claude Code:** the skill is auto-discovered from `.claude/skills/audit-website/SKILL.md`. No setup needed.
+
+**Cursor:** copy `.cursor/rules/audit-website.md` from this repo into your project's `.cursor/rules/` directory.
+
+**Other agents:** point the agent at `smartspec audit <url> -f llm` and it will parse the LLM-optimized output natively.
+
+Designed for vibecoders — users of Lovable, Bolt, v0, Replit, Cursor — whose sites typically fail Google indexing for predictable reasons (noindex residuals from preview envs, missing viewport tags, placeholder analytics IDs, default titles like "v0 by Vercel"). smartspec recognizes those patterns and names the tool in the fix message.

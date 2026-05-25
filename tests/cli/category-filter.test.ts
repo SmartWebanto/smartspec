@@ -14,6 +14,16 @@ describe("filterFindingsByCategory", () => {
     expect(r.map((f) => f.category)).toEqual(["a11y", "seo"]);
   });
 
+  it("accepts public category aliases", () => {
+    const aliased: Finding[] = [
+      { id: "1", rule: "llms.missing", category: "ai-readiness", severity: "warning", title: "x", description: "y" } as unknown as Finding,
+      { id: "2", rule: "content.thin", category: "content", severity: "warning", title: "x", description: "y" } as unknown as Finding,
+    ];
+
+    expect(filterFindingsByCategory(aliased, ["llms"]).map((f) => f.category)).toEqual(["ai-readiness"]);
+    expect(filterFindingsByCategory(aliased, ["content-quality"]).map((f) => f.category)).toEqual(["content"]);
+  });
+
   it("returns all findings when categories is undefined or empty", () => {
     expect(filterFindingsByCategory(sample, undefined)).toHaveLength(3);
     expect(filterFindingsByCategory(sample, [])).toHaveLength(3);

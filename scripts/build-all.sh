@@ -23,7 +23,7 @@ for target in "${TARGETS[@]}"; do
   outdir="dist/${target}"
   mkdir -p "${outdir}"
   echo "Building ${target}..."
-  bun build src/cli.ts \
+  bun build packages/core/src/cli.ts \
     --compile \
     --minify \
     --target="${target}" \
