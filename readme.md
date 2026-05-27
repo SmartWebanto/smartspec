@@ -17,18 +17,18 @@ A self-contained operator workspace that performs only:
 
 ## What you get
 
-The workspace ships one granular `/tech:*` slash command for every audit
+The workspace ships one granular `/smartspec:*` slash command for every audit
 module smartspec supports — 21 commands total.
 
 **Composite & system**
-`/tech:status`, `/tech:audit`, `/tech:page`, `/tech:health`, `/tech:daily`,
-`/tech:weekly`
+`/smartspec:status`, `/smartspec:audit`, `/smartspec:page`, `/smartspec:health`, `/smartspec:daily`,
+`/smartspec:weekly`
 
 **Per-category (one per smartspec audit module)**
-`/tech:a11y`, `/tech:analytics`, `/tech:content-quality`, `/tech:hreflang`,
-`/tech:images`, `/tech:links`, `/tech:llms-txt`, `/tech:mobile`,
-`/tech:performance`, `/tech:redirects`, `/tech:robots`, `/tech:schema`,
-`/tech:security`, `/tech:sitemap`, `/tech:social`
+`/smartspec:a11y`, `/smartspec:analytics`, `/smartspec:content-quality`, `/smartspec:hreflang`,
+`/smartspec:images`, `/smartspec:links`, `/smartspec:llms-txt`, `/smartspec:mobile`,
+`/smartspec:performance`, `/smartspec:redirects`, `/smartspec:robots`, `/smartspec:schema`,
+`/smartspec:security`, `/smartspec:sitemap`, `/smartspec:social`
 
 Each granular skill:
 
@@ -93,9 +93,9 @@ To use the Claude workspace directly:
 
 ```
 ./.claude/bin/claude-wrap
-/tech:status              # overview
-/tech:audit <client>      # full-site audit
-/tech:page <client> <url> # single-page deep audit
+/smartspec:status              # overview
+/smartspec:audit <client>      # full-site audit
+/smartspec:page <client> <url> # single-page deep audit
 ```
 
 ## Layout
